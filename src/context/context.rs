@@ -21,8 +21,14 @@ int_like!(ContextId, AtomicContextId, usize, AtomicUsize);
 /// See syscall::process::waitpid and the sync module for examples of usage
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Status {
+    /// The process is waiting to be assigned to a processor. This is different from `Status::Blocked`
+    /// because the process has all the resources it needs to run.
     Runnable,
+    /// Process instructions are being executed.
+    Running,
+    /// Process is waiting for something (e.g. for an event, resources or a state change)
     Blocked,
+    /// Process has finished working or has been terminated, the variant holds the exit status.
     Exited(usize)
 }
 
@@ -49,8 +55,6 @@ pub struct Context {
     pub ens: SchemeNamespace,
     /// Status of context
     pub status: Status,
-    /// Context running or not
-    pub running: bool,
     /// CPU ID, if locked
     pub cpu_id: Option<usize>,
     /// Current system call
@@ -102,7 +106,7 @@ pub struct Context {
 impl Context {
     pub fn new(id: ContextId) -> Context {
         Context {
-            id: id,
+            id,
             pgid: id,
             ppid: ContextId::from(0),
             ruid: 0,
@@ -112,7 +116,6 @@ impl Context {
             egid: 0,
             ens: SchemeNamespace::from(0),
             status: Status::Blocked,
-            running: false,
             cpu_id: None,
             syscall: None,
             vfork: false,
@@ -217,9 +220,9 @@ impl Context {
         }
     }
 
-    /// Block the context, and return true if it was runnable before being blocked
+    /// Block the context, and return true if it was in a `Status::Runnable` state before being blocked
     pub fn block(&mut self) -> bool {
-        if self.status == Status::Runnable {
+        if self.status == Status::Runnable || self.status == Status::Running {
             self.status = Status::Blocked;
             true
         } else {
@@ -227,7 +230,7 @@ impl Context {
         }
     }
 
-    /// Unblock context, and return true if it was blocked before being marked runnable
+    /// Unblock context, and return true if it was in a `Status::Blocked` state before being marked as `Status::Runnable`
     pub fn unblock(&mut self) -> bool {
         if self.status == Status::Blocked {
             self.status = Status::Runnable;

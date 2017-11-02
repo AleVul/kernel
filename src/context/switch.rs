@@ -54,7 +54,6 @@ pub unsafe fn switch() -> SwitchResult {
         let check_context = |context: &mut Context| -> bool {
             if context.cpu_id == None && cpu_id == 0 {
                 context.cpu_id = Some(cpu_id);
-                // println!("{}: take {} {}", cpu_id, context.id, ::core::str::from_utf8_unchecked(&context.name.lock()));
             }
 
             if context.ksig_restore {
@@ -95,7 +94,7 @@ pub unsafe fn switch() -> SwitchResult {
             }
 
             if context.cpu_id == Some(cpu_id) {
-                if context.status == Status::Runnable && !context.running {
+                if context.status == Status::Runnable {
                     return true;
                 }
             }
@@ -134,8 +133,8 @@ pub unsafe fn switch() -> SwitchResult {
 
     // Switch process states, TSS stack pointer, and store new context ID
     if to_ptr as usize != 0 {
-        (&mut *from_ptr).running = false;
-        (&mut *to_ptr).running = true;
+        (&mut *from_ptr).status = Status::Blocked;
+        (&mut *to_ptr).status = Status::Running;
         if let Some(ref stack) = (*to_ptr).kstack {
             gdt::TSS.rsp[0] = (stack.as_ptr() as usize + stack.len() - 256) as u64;
         }
