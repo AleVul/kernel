@@ -34,6 +34,9 @@ pub fn resource() -> Result<Vec<u8>> {
                 context::Status::Runnable => {
                     stat_string.push('R');
                 },
+                context::Status::Running => {
+                    stat_string.push('+');
+                },
                 context::Status::Blocked => if context.wake.is_some() {
                     stat_string.push('S');
                 } else {
@@ -42,9 +45,6 @@ pub fn resource() -> Result<Vec<u8>> {
                 context::Status::Exited(_status) => {
                     stat_string.push('Z');
                 }
-            }
-            if context.running {
-                stat_string.push('+');
             }
 
             let cpu_string = if let Some(cpu_id) = context.cpu_id {
